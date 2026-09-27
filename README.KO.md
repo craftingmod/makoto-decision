@@ -99,9 +99,11 @@ rule_result = RuleEvaluator([lambda decision: {"yes": 1.0}]).evaluate(
 
 `Decision`에는 하나 이상의 선택지가 필요합니다. `Choice.value`는 비어 있지 않고 서로 달라야 하며,
 각 선택지의 대상 문자열(`target`)도 비어 있지 않아야 합니다.
-`LlamaCppEvaluator`에서는 대상 문자열이 서로 다르고 각각 정확히 하나의 토큰으로 분리되어야 합니다.
-`DecisionResult.scores`에는 평가기 점수를 그대로 보존하고, `DecisionResult.probabilities`에는
-사용 가능한 선택지에 대한 softmax 확률을 제공합니다.
+`LlamaCppEvaluator`와 순정 llama 예시는 각 `Choice.target`을 독립된 문자열로 토큰화하며,
+정확히 하나의 토큰이어야 합니다. 실제 prompt 경계에서의 토큰화는 확인하지 않으며 여러 토큰
+선택지를 지원하지 않습니다. `DecisionResult.scores`에는 평가기 점수를 그대로 보존하고,
+`DecisionResult.probabilities`에는 점수를 선택지 간 softmax 정규화한 값을 제공합니다.
+이 값은 실제로 보정된 확률(calibrated probability)을 의미하지 않을 수 있습니다.
 문맥에는 텍스트, `Image`, `Audio`, `Video` 또는 텍스트와 미디어를 섞은 튜플을 사용할 수 있습니다.
 미디어 래퍼는 경로, 문자열 소스, `byte[]`를 받습니다.
 

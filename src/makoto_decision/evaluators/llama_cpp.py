@@ -6,10 +6,6 @@ from typing import Any
 from ..models import Audio, Context, ContextPart, Decision, DecisionResult, Image, Video
 
 
-class TokenBoundaryError(ValueError):
-    """Raised when a continuation changes the tokenization of its prompt."""
-
-
 class MultiTokenChoiceError(ValueError):
     """Raised when a choice target is not exactly one token."""
 
@@ -79,12 +75,10 @@ class LlamaCppEvaluator:
         return [{"role": "user", "content": content}]
 
     @staticmethod
-    def _context_parts(context: Context | int) -> tuple[ContextPart, ...]:
-        if isinstance(context, (str, Image, Audio, Video)):
-            return (context,)
+    def _context_parts(context: Context) -> tuple[ContextPart, ...]:
         if isinstance(context, tuple):
             return context
-        raise TypeError("llama decisions require text or image, audio, and video context")
+        return (context,)
 
     @staticmethod
     def _render_decision_prompt(decision: Decision) -> str:

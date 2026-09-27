@@ -134,7 +134,7 @@ def test_hash_evaluator_selects_from_question_deterministically() -> None:
     same_question_different_context = Decision(
         question=question,
         choices=decision.choices,
-        context=0,
+        context="different context",
     )
     assert HashEvaluator().evaluate(same_question_different_context).selected == result.selected
 

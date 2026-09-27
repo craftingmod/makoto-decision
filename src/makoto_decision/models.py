@@ -47,7 +47,7 @@ Context = str | ContextPart | tuple[ContextPart, ...]
 @dataclass(frozen=True)
 class Decision:
     choices: tuple[Choice, ...]
-    context: Context | int
+    context: Context
     question: str | None = None
     metadata: Mapping[str, Any] | None = None
 

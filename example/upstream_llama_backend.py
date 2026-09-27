@@ -18,7 +18,7 @@ class UpstreamLlamaCppEvaluator:
 
     Limitations:
     - text-only context
-    - single-token choice keys
+    - standalone single-token choice targets
     - uses a one-token completion to capture the first-token logits
     """
 
@@ -31,13 +31,10 @@ class UpstreamLlamaCppEvaluator:
                 "UpstreamLlamaCppEvaluator example only supports text context"
             )
 
-        if not decision.choices:
-            raise ValueError("Decision must contain at least one choice")
-
-        token_ids = [
-            self._choice_token_id(choice.value)
-            for choice in decision.choices
-        ]
+        targets = [choice.target for choice in decision.choices]
+        if len(targets) != len(set(targets)):
+            raise ValueError("choice targets must be unique")
+        token_ids = [self._choice_token_id(target) for target in targets]
 
         prompt = self._render_prompt(decision)
 
@@ -70,32 +67,28 @@ class UpstreamLlamaCppEvaluator:
         if captured_logits is None:
             raise RuntimeError("Failed to capture next-token logits")
 
-        scores = [
-            float(captured_logits[token_id])
-            for token_id in token_ids
-        ]
-
-        best_index = max(
-            range(len(scores)),
-            key=scores.__getitem__,
-        )
+        scores = {
+            choice.value: float(captured_logits[token_id])
+            for choice, token_id in zip(decision.choices, token_ids, strict=True)
+        }
+        selected = max(scores, key=scores.__getitem__)
 
         return DecisionResult(
-            selected=decision.choices[best_index].target,
+            selected=selected,
             scores=scores,
         )
 
-    def _choice_token_id(self, key: str) -> int:
+    def _choice_token_id(self, target: str) -> int:
         tokens = self._llama.tokenize(
-            key.encode("utf-8"),
+            target.encode("utf-8"),
             add_bos=False,
             special=False,
         )
 
         if len(tokens) != 1:
             raise ValueError(
-                f"Choice key must encode to exactly one token: "
-                f"{key!r} encoded to {len(tokens)} tokens"
+                f"Choice target must encode to exactly one token: "
+                f"{target!r} encoded to {len(tokens)} tokens"
             )
 
         return tokens[0]
@@ -103,12 +96,12 @@ class UpstreamLlamaCppEvaluator:
     @staticmethod
     def _render_prompt(decision: Decision) -> str:
         choices = "\n".join(
-            f"{choice.value}: {choice.target}"
+            f"{choice.target}: {choice.value}"
             for choice in decision.choices
         )
 
-        keys = ", ".join(
-            choice.value
+        targets = ", ".join(
+            choice.target
             for choice in decision.choices
         )
 
@@ -117,5 +110,5 @@ class UpstreamLlamaCppEvaluator:
             f"{decision.question}\n\n"
             f"Choices:\n"
             f"{choices}\n\n"
-            f"Respond with exactly one of: {keys}"
+            f"Respond with exactly one of: {targets}"
         )

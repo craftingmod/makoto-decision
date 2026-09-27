@@ -98,9 +98,11 @@ rule_result = RuleEvaluator([lambda decision: {"yes": 1.0}]).evaluate(
 ```
 
 `Decision` requires at least one choice, unique non-empty `Choice.value`s, and non-empty targets.
-`LlamaCppEvaluator` additionally requires unique targets that each tokenize to exactly one token.
-`DecisionResult.scores` keeps the evaluator's scores, and `DecisionResult.probabilities` applies
-softmax across the available choices. Context can be text, an `Image`, `Audio`, or `Video`, or a
+`LlamaCppEvaluator` and the upstream example tokenize each `Choice.target` as a standalone string
+and require exactly one token; they do not check tokenization at the prompt boundary or support
+multi-token choices. `DecisionResult.scores` keeps the evaluator's scores, and
+`DecisionResult.probabilities` softmax-normalizes them across choices; these values are not
+necessarily calibrated probabilities. Context can be text, an `Image`, `Audio`, or `Video`, or a
 tuple combining text and media. Media wrappers accept a path, string source, or bytes.
 
 ## Developing
