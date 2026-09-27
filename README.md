@@ -4,7 +4,7 @@
 
 > Kihehe. Excellent choice.
 
-### Choose like Hanuma Makoto: right or wrong, keep it cool.
+### Choose like [Hanuma Makoto](https://bluearchive.wiki/wiki/Makoto): right or wrong, keep it cool.
 
 `makoto-decision` is a small decision-scoring abstraction for single-token choices, with text and multimodal evaluator support.
 
