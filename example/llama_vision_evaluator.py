@@ -38,6 +38,6 @@ try:
     )
     result = LlamaCppEvaluator(llama).evaluate(decision)
     print(result.selected)
-    print(dict(result.scores))  # raw next-token logits for A and B
+    print(dict(result.probabilities))  # softmax
 finally:
     llama.close()

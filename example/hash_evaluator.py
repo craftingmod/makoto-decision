@@ -14,5 +14,6 @@ result = HashEvaluator().evaluate(decision)
 assert result.selected == HashEvaluator().evaluate(decision).selected
 assert result.selected is not None
 assert result.scores[result.selected] == 1.0
+
 print(result.selected)
-print(dict(result.scores))
+print(dict(result.probabilities))

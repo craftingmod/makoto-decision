@@ -1,3 +1,4 @@
+"""Simple llama_cpp_python (jamepeng) run example"""
 from llama_cpp import Llama
 import argparse
 
@@ -13,14 +14,16 @@ llama = Llama(
     model_path=args.model,
     n_ctx=4096,
 )
-decision = Decision(
-    question="Is the following statement true?",
-    context="2 + 2 = 4",
-    choices=Choices.yes_or_no(),
-)
-result = LlamaCppEvaluator(llama).evaluate(decision)
+try:
+    decision = Decision(
+        question="Is the following statement true?",
+        context="2 + 2 = 4",
+        choices=Choices.yes_or_no(),
+    )
+    result = LlamaCppEvaluator(llama).evaluate(decision)
 
-print(result.selected)
-print(dict(result.scores))  # raw next-token logits
+    print(result.selected)
+    print(dict(result.probabilities)) # softmax
 
-llama.close()
+finally:
+    llama.close()

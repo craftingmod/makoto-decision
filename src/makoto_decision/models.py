@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from string import ascii_uppercase
 from typing import Any
+from math import exp
 
 
 @dataclass(frozen=True)
@@ -70,3 +71,16 @@ class DecisionResult:
     selected: str | None
     scores: Mapping[str, float]
     metadata: Mapping[str, Any] | None = None
+
+    @property
+    def probabilities(self) -> Mapping[str, float]:
+        if not self.scores:
+            return {}
+
+        max_score = max(self.scores.values())
+        weights = {
+            choice: exp(score - max_score)
+            for choice, score in self.scores.items()
+        }
+        total = sum(weights.values())
+        return {choice: weight / total for choice, weight in weights.items()}

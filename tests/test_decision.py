@@ -1,3 +1,4 @@
+import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
@@ -10,7 +11,6 @@ from makoto_decision.evaluators import (
     LlamaCppEvaluator,
     MultiTokenChoiceError,
     RuleEvaluator,
-    TokenBoundaryError,
 )
 
 
@@ -20,26 +20,24 @@ class PrefillResultStub:
 
 
 class FakeLlama:
-    def __init__(self, *, boundary: str = "valid") -> None:
-        self.boundary: str = boundary
+    def __init__(self, *, multi_token_target: str | None = None) -> None:
+        self.multi_token_target: str | None = multi_token_target
         self.tokenize_calls: list[tuple[bytes, bool, bool]] = []
-        self.prefill_calls: list[list[int]] = []
+        self.chat_prefill_calls: list[list[dict[str, object]]] = []
         self.logits: list[float] = [0.0] * 12
         self.logits[10] = -3.5
         self.logits[11] = 2.0
 
     def tokenize(self, text: bytes, *, add_bos: bool, special: bool) -> list[int]:
         self.tokenize_calls.append((text, add_bos, special))
-        if text.endswith(b"Answer:"):
-            return [1, 2]
-        if text.endswith(b" A"):
-            return [1, 3, 10] if self.boundary == "mismatch" else [1, 2, 10]
-        if text.endswith(b" B"):
-            return [1, 2, 11, 12] if self.boundary == "multi" else [1, 2, 11]
+        if text == b"A":
+            return [10]
+        if text == b"B":
+            return [11, 12] if self.multi_token_target == "B" else [11]
         raise AssertionError(f"unexpected tokenization input: {text!r}")
 
-    def prefill(self, token_ids: list[int]) -> PrefillResultStub:
-        self.prefill_calls.append(token_ids)
+    def create_chat_prefill(self, *, messages: list[dict[str, object]]) -> PrefillResultStub:
+        self.chat_prefill_calls.append(messages)
         return PrefillResultStub(self.logits)
 
 
@@ -70,54 +68,81 @@ def test_llama_evaluator_prefills_once_and_selects_raw_logit() -> None:
 
     assert result.selected == "b"
     assert result.scores == {"a": -3.5, "b": 2.0}
-    assert len(llama.prefill_calls) == 1
-    assert llama.prefill_calls == [[1, 2]]
-    assert all(add_bos and not special for _, add_bos, special in llama.tokenize_calls)
+    assert llama.tokenize_calls == [(b"A", False, False), (b"B", False, False)]
+    assert llama.chat_prefill_calls == [
+        [
+            {
+                "role": "user",
+                "content": "A short context.\n\nChoose one.\n\nChoices:\nA: a\nB: b\n\n"
+                "Respond with exactly one of: A, B",
+            }
+        ]
+    ]
 
 
-@pytest.mark.parametrize(
-    ("boundary", "exception", "message"),
-    [
-        ("mismatch", TokenBoundaryError, "token boundary"),
-        ("multi", MultiTokenChoiceError, "one token"),
-    ],
-)
-def test_llama_evaluator_rejects_invalid_continuations(
-    boundary: str, exception: type[ValueError], message: str
-) -> None:
-    llama = FakeLlama(boundary=boundary)
+def test_llama_evaluator_rejects_multi_token_choice_targets() -> None:
+    llama = FakeLlama(multi_token_target="B")
 
-    with pytest.raises(exception, match=message):
+    with pytest.raises(MultiTokenChoiceError, match="one token"):
         LlamaCppEvaluator(llama).evaluate(_text_decision())
 
-    assert llama.prefill_calls == []
+    assert llama.chat_prefill_calls == []
 
 
-def test_llama_evaluator_requires_prefill() -> None:
-    with pytest.raises(TypeError, match="prefill"):
+def test_llama_evaluator_rejects_duplicate_choice_targets() -> None:
+    llama = FakeLlama()
+    decision = Decision(
+        question="Choose one.",
+        context="A short context.",
+        choices=(Choice("a", "A"), Choice("b", "A")),
+    )
+
+    with pytest.raises(ValueError, match="choice targets must be unique"):
+        LlamaCppEvaluator(llama).evaluate(decision)
+
+    assert llama.tokenize_calls == []
+    assert llama.chat_prefill_calls == []
+
+
+def test_llama_evaluator_requires_create_chat_prefill() -> None:
+    with pytest.raises(TypeError, match="create_chat_prefill"):
         LlamaCppEvaluator(TokenizeOnly())
 
 
-def test_hash_evaluator_scores_nonnegative_integer_hashes() -> None:
+def test_hash_evaluator_selects_from_question_deterministically() -> None:
+    question = "Which option should be selected?"
     decision = Decision(
+        question=question,
         choices=(
-            Choice("a", "A", {"hash": 0b1011}),
-            Choice("b", "B", {"hash": 0b1111}),
+            Choice("a", "A"),
+            Choice("b", "B"),
+            Choice("c", "C"),
         ),
-        context=0b1010,
+        context="ignored by HashEvaluator",
     )
 
     result = HashEvaluator().evaluate(decision)
+    index = (
+        int.from_bytes(hashlib.sha256(question.encode("utf-8")).digest()[:8], "big")
+        % len(decision.choices)
+    )
 
-    assert result.selected == "a"
-    assert result.scores == {"a": -1.0, "b": -2.0}
+    assert result.selected == decision.choices[index].value
+    assert result.scores == {
+        choice.value: float(choice_index == index)
+        for choice_index, choice in enumerate(decision.choices)
+    }
+    same_question_different_context = Decision(
+        question=question,
+        choices=decision.choices,
+        context=0,
+    )
+    assert HashEvaluator().evaluate(same_question_different_context).selected == result.selected
 
 
-@pytest.mark.parametrize("value", [-1, True])
-def test_hash_evaluator_rejects_invalid_hashes(value: int | bool) -> None:
-    decision = Decision(choices=(Choice("a", "A", {"hash": value}),), context=0)
-
-    with pytest.raises((TypeError, ValueError)):
+def test_hash_evaluator_requires_question() -> None:
+    decision = Decision(choices=(Choice("a", "A"),), context="")
+    with pytest.raises(ValueError, match="requires decision.question"):
         HashEvaluator().evaluate(decision)
 
 
@@ -134,6 +159,9 @@ def test_rule_evaluator_accumulates_scores() -> None:
 
     assert result.selected == "b"
     assert result.scores == {"a": 1.0, "b": 1.5}
+    assert result.probabilities == pytest.approx(
+        {"a": 0.3775406687981454, "b": 0.6224593312018546}
+    )
 
 
 @pytest.mark.parametrize(

@@ -6,7 +6,7 @@
 
 ### Choose like Hanuma Makoto: right or wrong, keep it cool.
 
-`makoto-decision` is a lightweight Python library for choosing among predefined options.
+`makoto-decision` is a small decision-scoring abstraction for single-token choices, with text and multimodal evaluator support.
 
 ```python
 from llama_cpp import Llama
@@ -23,8 +23,9 @@ decision = Decision(
 evaluator = LlamaCppEvaluator(llama)
 
 result = evaluator.evaluate(decision)
-print(result.selected)
-print(result.scores)  # Raw next-token logits, not probabilities.
+print(result.selected) # "yes"
+# Soft-max token
+print(result.probabilities) # {"yes": 0.962, "no": 0.038}
 ```
 
 Define a context, an optional question, and choices such as `Choices.yes_or_no()`.
@@ -44,13 +45,21 @@ An evaluator returns the selected choice and scores.
 
 ### Custom evaluators
 
+For example, [examples/upstream_llama_evaluator.py](./example/upstream_llama_evaluator.py) demonstrates a minimal evaluator using upstream llama-cpp-python.
+
+The upstream example is intentionally limited to text input and single-token choices. It captures the logits from the first step of a one-token completion, so unlike the `JamePeng backend` it is not a true prefill-only implementation.
+
+This also means `makoto-decision` is not tied to a particular inference backend, any implementation that can map a Decision to a DecisionResult (`evaluate(Decision) -> DecisionResult`) can be used as an evaluator.
+
+---
+
+A custom backend only needs to implement the evaluator interface:
+
 ```python
 class MyEvaluator:
     def evaluate(self, decision: Decision) -> DecisionResult:
         ...
 ```
-
-Any object implementing `evaluate(Decision) -> DecisionResult` can be used as an evaluator.
 
 ## Examples
 
@@ -88,9 +97,9 @@ rule_result = RuleEvaluator([lambda decision: {"yes": 1.0}]).evaluate(
 
 `Decision` requires at least one choice, unique non-empty `Choice.value`s, and non-empty targets.
 `LlamaCppEvaluator` additionally requires unique targets that each tokenize to exactly one token.
-Evaluators return `DecisionResult(selected, scores)` without normalizing scores into
-probabilities. Context can be text, an `Image`, `Audio`, or `Video`, or a tuple combining text and
-media. Media wrappers accept a path, string source, or bytes.
+`DecisionResult.scores` keeps the evaluator's scores, and `DecisionResult.probabilities` applies
+softmax across the available choices. Context can be text, an `Image`, `Audio`, or `Video`, or a
+tuple combining text and media. Media wrappers accept a path, string source, or bytes.
 
 ## Developing
 
