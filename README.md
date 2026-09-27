@@ -1,5 +1,7 @@
 # Makoto-decision
 
+[English](./README.md) | [한국어](./README.KO.md)
+
 ![D.K.T](./docs/media/daekoto.jpg)
 
 > Kihehe. Excellent choice.
