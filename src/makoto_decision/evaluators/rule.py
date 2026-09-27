@@ -5,6 +5,7 @@ from ..models import Decision, DecisionResult
 
 
 class RuleEvaluator:
+    """Simple callback-based evaluator intended for examples and lightweight rules."""
     def __init__(self, rules: Iterable[Callable[[Decision], Mapping[str, float]]]) -> None:
         self._rules: tuple[Callable[[Decision], Mapping[str, float]], ...] = tuple(rules)
 
