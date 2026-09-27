@@ -1,5 +1,5 @@
 # TODO: Add code!
-def main():
+def main() -> None:
     pass
 
 
