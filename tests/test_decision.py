@@ -122,9 +122,8 @@ def test_hash_evaluator_selects_from_question_deterministically() -> None:
     )
 
     result = HashEvaluator().evaluate(decision)
-    index = (
-        int.from_bytes(hashlib.sha256(question.encode("utf-8")).digest()[:8], "big")
-        % len(decision.choices)
+    index = int.from_bytes(hashlib.sha256(question.encode("utf-8")).digest()[:8], "big") % len(
+        decision.choices
     )
 
     assert result.selected == decision.choices[index].value
@@ -159,9 +158,7 @@ def test_rule_evaluator_accumulates_scores() -> None:
 
     assert result.selected == "b"
     assert result.scores == {"a": 1.0, "b": 1.5}
-    assert result.probabilities == pytest.approx(
-        {"a": 0.3775406687981454, "b": 0.6224593312018546}
-    )
+    assert result.probabilities == pytest.approx({"a": 0.3775406687981454, "b": 0.6224593312018546})
 
 
 @pytest.mark.parametrize(

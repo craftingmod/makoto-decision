@@ -1,9 +1,9 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
+from math import exp
 from pathlib import Path
 from string import ascii_uppercase
 from typing import Any
-from math import exp
 
 
 @dataclass(frozen=True)
@@ -78,9 +78,6 @@ class DecisionResult:
             return {}
 
         max_score = max(self.scores.values())
-        weights = {
-            choice: exp(score - max_score)
-            for choice, score in self.scores.items()
-        }
+        weights = {choice: exp(score - max_score) for choice, score in self.scores.items()}
         total = sum(weights.values())
         return {choice: weight / total for choice, weight in weights.items()}
