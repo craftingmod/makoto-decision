@@ -25,7 +25,7 @@ args = parser.parse_args()
 llama = Llama(
     model_path=str(args.model),
     chat_handler=Gemma4ChatHandler(
-        mmproj_path=args.mmproj,
+        mmproj_path=str(args.mmproj),
         enable_thinking=False,
     ),
     n_ctx=4096,
